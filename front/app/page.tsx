@@ -1,124 +1,123 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import Header from './components/Header';
-import Button from './components/Button';
-import Card from './components/Card';
-import CardHistory from './components/CardHistory';
+import React, { useState, useEffect, useRef } from "react";
+import Header from "./components/Header";
+import Button from "./components/Button";
+import Card from "./components/Card";
+import CardHistory from "./components/CardHistory";
 
 declare global {
-  interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
-  }
+    interface Window {
+        SpeechRecognition: any;
+        webkitSpeechRecognition: any;
+    }
 }
 
 const Home = () => {
-  const [inputText, setInputText] = useState('');
-  const [responseText, setResponseText] = useState('');
-  const [conversationHistory, setConversationHistory] = useState('');
-  const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
-  const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
-  const API_KEY = process.env.NEXT_PUBLIC_API_KEY_1;
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [delayForSpeech, setDelayForSpeech] = useState(0);
+    const [inputText, setInputText] = useState("");
+    const [responseText, setResponseText] = useState("");
+    const [conversationHistory, setConversationHistory] = useState("");
+    const [isListening, setIsListening] = useState(false);
+    const [recognition, setRecognition] = useState<any>(null);
+    const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
+    const API_KEY = process.env.NEXT_PUBLIC_API_KEY_1;
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [delayForSpeech, setDelayForSpeech] = useState(0);
 
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognitionInstance = new SpeechRecognition();
-      recognitionInstance.lang = 'ja-JP';
-      recognitionInstance.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        setInputText(text);
-        handleSubmit(text);
-      };
-      recognitionInstance.onend = () => setIsListening(false);
-      setRecognition(recognitionInstance);
-    }
-  }, []);
+    useEffect(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognitionInstance = new SpeechRecognition();
+            recognitionInstance.lang = "ja-JP";
+            recognitionInstance.onresult = (event: any) => {
+                const text = event.results[0][0].transcript;
+                setInputText(text);
+                handleSubmit(text);
+            };
+            recognitionInstance.onend = () => setIsListening(false);
+            setRecognition(recognitionInstance);
+        }
+    }, []);
 
-  const startListening = () => {
-    if (recognition && !isListening) {
-      recognition.start();
-      setIsListening(true);
-      setIsGeneratingResponse(false); // 応答生成中ではない
-    }
-  };
-
-  const stopListening = () => {
-    if (recognition && isListening) {
-      recognition.stop();
-      setIsListening(false);
-      setIsGeneratingResponse(true); // 応答を生成中に設定
-    }
-  };
-
-  const speak = (text: string) => {
-    if (text) {
-      setIsSpeaking(true); // 音声出力を開始
-      const delay = text.length * 0.12 * 1000; // 文字数 x 0.5秒の遅延時間を計算
-      setDelayForSpeech(delay); // 遅延時間を状態に保存
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onend = () => {
-        console.log("読み上げ終了");
-        setIsSpeaking(false); // 音声出力を終了
-      };
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  useEffect(() => {
-    if (!isListening && !isSpeaking && recognition && !isGeneratingResponse) {
-      const timer = setTimeout(() => {
-        startListening();
-      }, delayForSpeech);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isListening, isSpeaking, recognition, delayForSpeech, isGeneratingResponse]);
-  
-
-  const generateText = async (instruction: string) => {
-    const body = {
-      model: "gpt-4-1106-preview",
-      messages: [{ role: "user", content: instruction }],
-      max_tokens: 1000
+    const startListening = () => {
+        if (recognition && !isListening) {
+            recognition.start();
+            setIsListening(true);
+            setIsGeneratingResponse(false); // 応答生成中ではない
+        }
     };
 
-    const headers = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${API_KEY}`
+    const stopListening = () => {
+        if (recognition && isListening) {
+            recognition.stop();
+            setIsListening(false);
+            setIsGeneratingResponse(true); // 応答を生成中に設定
+        }
     };
 
-    try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(body)
-      });
+    const speak = (text: string) => {
+        if (text) {
+            setIsSpeaking(true); // 音声出力を開始
+            const delay = text.length * 0.1 * 1000; // 文字数 x 0.5秒の遅延時間を計算
+            setDelayForSpeech(delay); // 遅延時間を状態に保存
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.onend = () => {
+                console.log("読み上げ終了");
+                setIsSpeaking(false); // 音声出力を終了
+            };
+            window.speechSynthesis.speak(utterance);
+        }
+    };
 
-      if (response.ok) {
-        const data = await response.json();
-        setIsGeneratingResponse(false); // 応答生成完了
-        return data.choices[0].message.content;
-      } else {
-        console.error("Response error:", response.status);
-        setIsGeneratingResponse(false); // 応答生成完了
-        return "";
-      }
-    } catch (error) {
-      console.error("Error occurred:", error);
-      setIsGeneratingResponse(false); // 応答生成完了
-      return "";
-    }
-  };
+    useEffect(() => {
+        if (!isListening && !isSpeaking && recognition && !isGeneratingResponse) {
+            const timer = setTimeout(() => {
+                startListening();
+            }, delayForSpeech);
 
-  const handleSubmit = async (spokenText: string) => {
-    setConversationHistory(prev => prev + `あなた：${spokenText}\n`);
+            return () => clearTimeout(timer);
+        }
+    }, [isListening, isSpeaking, recognition, delayForSpeech, isGeneratingResponse]);
 
-    const instruction = `
+    const generateText = async (instruction: string) => {
+        const body = {
+            model: "gpt-4-1106-preview",
+            messages: [{ role: "user", content: instruction }],
+            max_tokens: 1000,
+        };
+
+        const headers = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${API_KEY}`,
+        };
+
+        try {
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: headers,
+                body: JSON.stringify(body),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setIsGeneratingResponse(false); // 応答生成完了
+                return data.choices[0].message.content;
+            } else {
+                console.error("Response error:", response.status);
+                setIsGeneratingResponse(false); // 応答生成完了
+                return "";
+            }
+        } catch (error) {
+            console.error("Error occurred:", error);
+            setIsGeneratingResponse(false); // 応答生成完了
+            return "";
+        }
+    };
+
+    const handleSubmit = async (spokenText: string) => {
+        setConversationHistory((prev) => prev + `あなた：${spokenText}\n`);
+
+        const instruction = `
       #相手からの入力された言葉
       ${spokenText}
 
@@ -143,67 +142,57 @@ const Home = () => {
       ${conversationHistory}
     `;
 
-    const response = await generateText(instruction);
-    setConversationHistory(prev => prev + `話し相手：${response}\n`);
-    setResponseText(response);
-    speak(response); // 返答を読み上げる
+        const response = await generateText(instruction);
+        setConversationHistory((prev) => prev + `話し相手：${response}\n`);
+        setResponseText(response);
+        speak(response); // 返答を読み上げる
 
-    await new Promise<void>((resolve) => {
-      const checkIfSpeakingEnded = setInterval(() => {
-        if (!isSpeaking) {
-          clearInterval(checkIfSpeakingEnded);
-          resolve(); // この行を追加
+        await new Promise<void>((resolve) => {
+            const checkIfSpeakingEnded = setInterval(() => {
+                if (!isSpeaking) {
+                    clearInterval(checkIfSpeakingEnded);
+                    resolve(); // この行を追加
+                }
+            }, 100);
+        });
+
+        startListening(); // ここでリスニングを再開
+    };
+
+    const getSpeechRecognitionStatus = () => {
+        if (isListening) {
+            return "聞き取り中";
+        } else if (isGeneratingResponse) {
+            return "応答の生成中";
         }
-      }, 100);
-    });
-  
-    startListening(); // ここでリスニングを再開
-  };
+        return "停止中";
+    };
 
-  const getSpeechRecognitionStatus = () => {
-    if (isListening) {
-      return '聞き取り中';
-    } else if (isGeneratingResponse) {
-      return '応答の生成中';
-    }
-    return '停止中';
-  };
+    return (
+        <div className="min-h-screen bg-[rgb(193,242,176)] text-[rgb(251,246,238)]">
+            <Header />
 
+            <div className="p-4">
+                <div className="flex justify-center items-center flex-col">
+                    <Button onClick={startListening} disabled={isListening}>
+                        会話スタート
+                    </Button>
+                    <Button onClick={stopListening} disabled={!isListening}>
+                        会話を停止
+                    </Button>
+                    <div className="font-bold text-2xl font-sans text-black mt-4">
+                        <p>音声認識ステータス: {getSpeechRecognitionStatus()}</p>
+                    </div>
+                </div>
 
-  return (
-    <div>
-      <Header />
-
-      <div>
-        <div className="navi">
-          <Button onClick={startListening} disabled={isListening}>
-            会話スタート
-          </Button>
-          <Button onClick={stopListening} disabled={!isListening}>
-            会話を停止
-          </Button>
-          <div>
-            <p className="status_bar">音声認識ステータス: {getSpeechRecognitionStatus()}</p>
-          </div>
+                <div className="flex flex-col items-center space-y-4 mt-4">
+                    <Card title="お話された言葉" content={inputText} />
+                    <Card title="応答の言葉" content={responseText} />
+                    <CardHistory title="会話履歴" content={conversationHistory} />
+                </div>
+            </div>
         </div>
-        
-
-        <div className="Card_field">
-          <div>
-            <Card title="お話された言葉" content={inputText} />
-          </div>
-
-          <div>
-            <Card title="応答の言葉" content={responseText} />
-          </div>
-
-          <div>
-            <CardHistory title="会話履歴" content={conversationHistory} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default Home;
